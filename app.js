@@ -1,25 +1,32 @@
 const Asana = require('asana');
-const util = require('util');
-var client = Asana.Client.create().useAccessToken("1/1203033939170955:929b98ed3a758fd63520c7528ea0c79b");
+const dotenv = require("dotenv").config()
+// Using a PAT for basic authentication. This is reasonable to get
+// started with, but Oauth is more secure and provides more features.
+
+var client = Asana.Client.create().useAccessToken(process.env.ASANA_ACCESS_TOKEN);
 var userId;
-var workspaceId;
+let user_Obj = {}
+
 client.users.me()
   .then(user => {
+
     userId = user.gid;
-    console.log("User details:", user)
-    workspaceId = user.workspaces[0].gid;
-    return client.projects.findAll({
-      assignee: userId,
-      workspace: workspaceId
-    });
+    user_Obj.workspaces = user.workspaces
+    
+    user_Obj.workspaces.map((workspace, index) => {
+      client.projects.getProjectsForWorkspace(workspace.gid)
+        .then((workspaceResult) => {
+          
+          user_Obj.workspaces[index].project =  workspaceResult.data
+          console.dir(user_Obj, {depth:null})
+          workspaceResult.data.map((project, pindex) => {
+            client.tasks.getTasksForProject(project.gid)
+            .then(projectResult => { 
+              user_Obj.workspaces[index].project[pindex].tasks =  projectResult.data
+              console.dir(user_Obj, {depth:null})
+            })
+          })
+        });
+      })
   })
-  .then(async response => {
-    console.log("Projects: ",response.data)
-    return client.tasks.getTasksForProject(response.data[0].gid)
-    .then((result) => {
-        console.log("Here are the tasks: ", result.data);
-    });
-  })
-  .catch(e => {
-    console.log(e);
-  });
+
